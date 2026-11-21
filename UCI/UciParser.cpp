@@ -165,6 +165,11 @@ GameState UciParser::positionParse(std::vector<std::string> fenInput) {
   // All of the following parameters are yet to be implemented in game logic.
   // Likely, the GameState struct needs to be expanded.
   std::string enPassantSquare = fenInput[4];
+  if (enPassantSquare != "-") {
+    sf::Vector2i square = {enPassantSquare[0] - 'a', '8' - enPassantSquare[1]};
+    if (canCaptureEnPassant(state.board, square, state.sideToMove))
+      state.epSquare = square;
+  }
 
   std::string halfmove = fenInput[5];
   state.halfmoveClock = std::stoi(halfmove);

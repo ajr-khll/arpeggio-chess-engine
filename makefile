@@ -1,5 +1,5 @@
 CXX      := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -O2
+CXXFLAGS := -std=c++17 -Wall -Wextra -O2 -MMD -MP
 
 UNAME_S := $(shell uname -s)
 
@@ -51,6 +51,9 @@ $(TARGET): $(OBJS)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
+# rebuild objects when a header they include changes
+-include $(OBJS:.o=.d)
+
 # builds the current tree as a given version number WITHOUT bumping VERSION.
 # used by scripts/match.sh to reproduce a laptop version on the Mac from its
 # src.tar.gz, so version numbers stay identical across machines.
@@ -67,6 +70,6 @@ run:
 
 # removes object files only; built engines in Engines/ are never deleted
 clean:
-	rm -f $(OBJS)
+	rm -f $(OBJS) $(OBJS:.o=.d)
 
 .PHONY: all run clean as-version

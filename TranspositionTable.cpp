@@ -27,6 +27,12 @@ static uint64_t castlingKey(const Table &seeded, int castling) {
   return key;
 }
 
+static uint64_t enPassantKey(const Table &seeded, sf::Vector2i epSquare) {
+  if (epSquare == NO_SQUARE)
+    return 0;
+  return seeded.enPassantFile[epSquare.x];
+}
+
 Table::Table() {
   std::mt19937_64 rng(42);
   std::uniform_int_distribution<uint64_t> dist(0, UINT64_MAX);
@@ -40,6 +46,9 @@ Table::Table() {
   for (int i = 0; i < 4; ++i) {
     castlingRights[i] = dist(rng);
   }
+  for (int file = 0; file < 8; ++file) {
+    enPassantFile[file] = dist(rng);
+  }
 }
 
 uint64_t zobristHash(const GameState &state, const Table &seeded) {
@@ -52,10 +61,10 @@ uint64_t zobristHash(const GameState &state, const Table &seeded) {
   if (state.sideToMove == 1) // BLACK
     hash ^= seeded.isBlackTurn;
   hash ^= castlingKey(seeded, state.castling);
+  hash ^= enPassantKey(seeded, state.epSquare);
   return hash;
 }
 
-// no en passant (yet!!)
 uint64_t zobristHashMove(uint64_t hash, const GameState &before,
                          const Move &move, const GameState &after,
                          const Table &seeded) {
@@ -72,6 +81,11 @@ uint64_t zobristHashMove(uint64_t hash, const GameState &before,
   hash ^= pieceKey(seeded, tx, ty, captured);
   hash ^= pieceKey(seeded, tx, ty, placed);
 
+  if (isEnPassant(before, move)) {
+    int capturedPawn = before.board[fy][tx];
+    hash ^= pieceKey(seeded, tx, fy, capturedPawn);
+  }
+
   // castling
   if ((moved == W_KING || moved == B_KING) && std::abs(tx - fx) == 2) {
     int rookFrom = (tx == 6) ? 7 : 0;
@@ -82,6 +96,8 @@ uint64_t zobristHashMove(uint64_t hash, const GameState &before,
   }
 
   hash ^= castlingKey(seeded, before.castling ^ after.castling);
+  hash ^= enPassantKey(seeded, before.epSquare);
+  hash ^= enPassantKey(seeded, after.epSquare);
   hash ^= seeded.isBlackTurn;
 
   return hash;

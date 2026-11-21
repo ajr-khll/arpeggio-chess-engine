@@ -31,6 +31,35 @@ static inline bool isEnemy(int piece, int other) {
   return colorOf(piece) != colorOf(other);
 }
 
+bool isEnPassant(const GameState &state, const Move &move) {
+  if (state.epSquare == NO_SQUARE || move.to != state.epSquare)
+    return false;
+  int ownPawn = (state.sideToMove == WHITE) ? W_PAWN : B_PAWN;
+  return state.board[move.from.y][move.from.x] == ownPawn;
+}
+
+bool canCaptureEnPassant(const int (&board)[8][8], sf::Vector2i epSquare,
+                         int capturer) {
+  int pawnRank = (capturer == WHITE) ? epSquare.y + 1 : epSquare.y - 1;
+  int capturingPawn = (capturer == WHITE) ? W_PAWN : B_PAWN;
+  for (int dx : {-1, +1}) {
+    int x = epSquare.x + dx;
+    if (inBounds(x, pawnRank) && board[pawnRank][x] == capturingPawn)
+      return true;
+  }
+  return false;
+}
+
+static inline int scoreMove(GameState &state, Move &move) {
+  int victimPiece = isEnPassant(state, move) ? W_PAWN
+                                             : state.board[move.to.y][move.to.x];
+  int attacker = PIECE_VALUES[state.board[move.from.y][move.from.x]];
+  int victim = PIECE_VALUES[victimPiece];
+  // Most valuable victim, least valuable attacker.
+  float score = (float)(victim * victim) * (1 / (float)attacker);
+  return score;
+}
+
 static inline bool isFriend(int piece, int other) {
   if (other == EMPTY)
     return false;
@@ -159,7 +188,12 @@ std::vector<Move> calculatePossibleMoves(int piece, sf::Vector2i position,
     for (int dx : {-1, +1}) {
       int cx = x + dx;
       int cy = y + dir;
-      if (inBounds(cx, cy) && isEnemy(piece, current.board[cy][cx])) {
+      if (!inBounds(cx, cy))
+        continue;
+
+      bool capturesEnemy = isEnemy(piece, current.board[cy][cx]);
+      bool capturesEnPassant = isEnPassant(current, Move{{x, y}, {cx, cy}});
+      if (capturesEnemy || capturesEnPassant) {
         addPawnMove({cx, cy});
       }
     }
@@ -256,7 +290,7 @@ std::vector<Move> calculatePossibleMoves(int piece, sf::Vector2i position,
 
     for (const Move &move : moves) {
       int target = current.board[move.to.y][move.to.x];
-      bool isCapture = (target != EMPTY);
+      bool isCapture = (target != EMPTY) || isEnPassant(current, move);
 
       bool givesCheck = false;
       if (includeChecks && !isCapture) {
@@ -272,8 +306,12 @@ std::vector<Move> calculatePossibleMoves(int piece, sf::Vector2i position,
 
     moves = captures;
   }
-
   std::vector<Move> validMoves = removeIllegalMoves(piece, moves, current);
+
+  for (Move &move : validMoves) {
+    move.ranking = scoreMove(current, move);
+  }
+
   return validMoves;
 }
 
@@ -383,9 +421,8 @@ vector<Move> gatherMoves(GameState state, int side, bool capturesOnly,
     for (int x = 0; x < 8; ++x) {
       int piece = state.board[y][x];
       if (colorOf(piece) == side) {
-        std::vector<Move> pieceMoves =
-            calculatePossibleMoves(piece, {x, y}, state, capturesOnly,
-                                   includeChecks);
+        std::vector<Move> pieceMoves = calculatePossibleMoves(
+            piece, {x, y}, state, capturesOnly, includeChecks);
         moves.insert(moves.end(), pieceMoves.begin(), pieceMoves.end());
       }
     }
@@ -393,6 +430,10 @@ vector<Move> gatherMoves(GameState state, int side, bool capturesOnly,
   return moves;
 }
 
+vector<Move> gatherCaptures(GameState state) {
+  std::vector<Move>
+      moves; // incomplete. not sure how to implement yet, to use MVV-LUA }
+};
 bool isInCheck(GameState state, int color) {
   int enemyColor = color ^ 1;
   return isSquareAttacked(state.board, state.kingPos[color], enemyColor);
@@ -429,6 +470,7 @@ GameState makeMove(const GameState &current, const Move &move,
   int turn = current.sideToMove;
   int castling = current.castling;
   int halfmoveClock = current.halfmoveClock;
+  sf::Vector2i epSquare = current.epSquare;
 
   if (ok) {
     int piece = BOARD[SELECTED.y][SELECTED.x];
@@ -450,6 +492,9 @@ GameState makeMove(const GameState &current, const Move &move,
       else
         piece = (piece == W_PAWN) ? W_QUEEN : B_QUEEN;
     }
+
+    if (isEnPassant(current, move))
+      BOARD[SELECTED.y][coordinate.x] = EMPTY;
 
     BOARD[SELECTED.y][SELECTED.x] = EMPTY;
     BOARD[coordinate.y][coordinate.x] = piece;
@@ -484,6 +529,14 @@ GameState makeMove(const GameState &current, const Move &move,
     }
 
     turn ^= 1;
+
+    epSquare = NO_SQUARE;
+    bool doublePush = pawnMove && std::abs(coordinate.y - SELECTED.y) == 2;
+    if (doublePush) {
+      sf::Vector2i skipped = {SELECTED.x, (SELECTED.y + coordinate.y) / 2};
+      if (canCaptureEnPassant(BOARD, skipped, turn))
+        epSquare = skipped;
+    }
   }
 
   GameState newState;
@@ -492,6 +545,7 @@ GameState makeMove(const GameState &current, const Move &move,
   newState.kingPos[WHITE] = whiteKingPos;
   newState.kingPos[BLACK] = blackKingPos;
   newState.castling = castling;
+  newState.epSquare = epSquare;
   newState.halfmoveClock = halfmoveClock;
 
   newState.hash = zobristHashMove(before.hash, before, move, newState, seeded);

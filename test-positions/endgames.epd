@@ -1,0 +1,13 @@
+8/8/8/4k3/8/8/8/3QK3 w - - id "KQK"; c0 "win, mate in 7";
+8/8/8/4k3/8/8/8/R3K3 w - - id "KRK"; c0 "win, mate in 14";
+8/8/8/4k3/8/8/8/2B1KB2 w - - id "KBBK"; c0 "win, mate in 17";
+8/8/8/4k3/8/4K3/4P3/8 b - - id "KPK opposition, black to move"; c0 "win for white, mate in 20";
+8/8/8/4k3/8/4K3/4P3/8 w - - id "KPK opposition, white to move"; c0 "draw";
+7k/ppp5/8/PPP5/8/8/8/7K w - - id "Pawn breakthrough"; c0 "win, only move b6"; bm b6;
+8/5pk1/6p1/8/P7/6P1/5PK1/8 w - - id "Outside passed pawn"; c0 "win"; bm a5;
+7K/8/k1P5/7p/8/8/8/8 w - - id "Reti study"; c0 "draw, only move Kg7"; bm Kg7;
+1K1k4/1P6/8/8/8/8/r7/2R5 w - - id "Lucena"; c0 "win, Rd1+ then bridge with Rd4"; bm Rd1+;
+4k3/8/1r6/3KP3/8/8/8/4R3 b - - id "Philidor"; c0 "draw, engine defends as black";
+K7/8/8/8/8/8/3pk3/7Q w - - id "KQ vs KP, d-pawn"; c0 "win, mate in 24";
+K7/8/8/8/8/8/2pk4/7Q w - - id "KQ vs KP, c-pawn"; c0 "draw";
+8/8/8/4k3/8/8/8/1N2KB2 w - - id "KBNK"; c0 "win, very hard";

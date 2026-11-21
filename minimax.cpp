@@ -7,10 +7,10 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <climits>
 #include <cstddef>
 #include <cstdlib>
 #include <iostream>
-#include <optional>
 #include <string>
 
 // Array for values of pieces
@@ -20,22 +20,6 @@
 // (must match the PieceIDs order in TextureManager.h)
 
 enum colors { WHITE = 0, BLACK = 1 };
-
-static const int PIECE_VALUES[13] = {
-    0,     // EMPTY
-    100,   // W_PAWN
-    500,   // W_ROOK
-    320,   // W_KNIGHT
-    330,   // W_BISHOP
-    900,   // W_QUEEN
-    20000, // W_KING (Arbitrarily high so the engine never sacrifices it)
-    100,   // B_PAWN
-    500,   // B_ROOK
-    320,   // B_KNIGHT
-    330,   // B_BISHOP
-    900,   // B_QUEEN
-    20000  // B_KING
-};
 
 // --------------------------------------------------------------------------
 // PIECE-SQUARE TABLES (White's Perspective)
@@ -202,6 +186,17 @@ int evaluateScore(GameState state, int color) {
   return score * (200 - state.halfmoveClock) / 200;
 }
 
+static void selectNextMove(std::vector<Move> &moves, int position) {
+  // swap best ranked move into position
+  int bestRankPos = position;
+  for (size_t i = position; i < moves.size(); i++) {
+    if (moves[i].ranking >= moves[bestRankPos].ranking) {
+      bestRankPos = i;
+    }
+  }
+  std::swap(moves[position], moves[bestRankPos]);
+}
+
 // Minimax algorithm, recursive
 const int CAP = 5; // think no more than 5 moves ahead
 
@@ -215,7 +210,7 @@ evaluatedMove Minimax(GameState state, int side, int alpha, int beta,
     }
     return {lastMove, score};
   }
-  Move nullMove = {{-1, -1}, {-1, -1}};
+  Move nullMove = Move({-1, -1}, {-1, -1}, 0);
   evaluatedMove bestMove{nullMove};
   if (side == BLACK)
     bestMove.score = -999999;
@@ -327,7 +322,10 @@ int quiescenceSearch(GameState state, int alpha, int beta, int qDepth = 0) {
     moves = gatherMoves(state, state.sideToMove, true, includeChecks);
   }
 
-  for (Move move : moves) {
+  for (size_t i = 0; i < moves.size(); i++) {
+    selectNextMove(moves, i);
+    Move move = moves[i];
+
     int score =
         quiescenceSearch(simulateMove(state, move), alpha, beta, qDepth + 1);
     if (isTimeUp())
@@ -431,7 +429,11 @@ int minimaxScore(GameState state, int maxDepth, int currDepth,
 
   if (probe_result != nullptr) {
     Move ttMove = decodeMove(probe_result->bestMove);
-    moveToFront(moves, ttMove);
+    for (Move &move : moves) {
+      if (move == ttMove) {
+        move.ranking = INT_MAX;
+      }
+    }
   }
   if (moves.empty()) {
     if (isInCheck(state, state.sideToMove)) {
@@ -449,7 +451,9 @@ int minimaxScore(GameState state, int maxDepth, int currDepth,
   Move bestMove;
   int alphaOriginal = alpha;
   int betaOriginal = beta;
-  for (Move move : moves) {
+  for (size_t i = 0; i < moves.size(); i++) {
+    selectNextMove(moves, i);
+    Move move = moves[i];
     if (std::chrono::steady_clock::now() > deadline) {
       stop_search = true;
     }

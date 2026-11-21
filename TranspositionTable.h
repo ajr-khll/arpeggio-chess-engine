@@ -41,6 +41,7 @@ struct Table {
   std::array<std::array<uint64_t, NUM_PIECES>, NUM_SQUARES> initTable;
   uint64_t isBlackTurn;
   std::array<uint64_t, 4> castlingRights;
+  std::array<uint64_t, 8> enPassantFile;
   Table();
 };
 
