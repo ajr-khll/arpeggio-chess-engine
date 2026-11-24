@@ -31,18 +31,21 @@ TARGET     := $(ENGINE_DIR)/Arpeggio-$(NEXT_VERSION)
 SCRIPT     := $(ENGINE_DIR)/arpeggio-$(NEXT_VERSION).sh
 LATEST     := Engines/Arpeggio-$(CUR_VERSION)/Arpeggio-$(CUR_VERSION)
 
-SRCS   := main.cpp Moves.cpp simulateMoves.cpp minimax.cpp gui.cpp UCI/UciOut.cpp UCI/UciParser.cpp UCI/GameManager.cpp TranspositionTable.cpp
+SRCS   := main.cpp Moves.cpp simulateMoves.cpp minimax.cpp gui.cpp UCI/UciOut.cpp UCI/UciParser.cpp UCI/GameManager.cpp TranspositionTable.cpp NNUE/nnue.cpp
 OBJS   := $(SRCS:.cpp=.o)
+# network weights: copied next to each engine binary as arpeggio.nnue
+NET    := NNUE/nets/arpeggio-gen2.bin
 # everything needed to rebuild a version elsewhere (e.g. the Mac test box)
-SNAP_FILES := makefile timer.cpp $(SRCS) $(wildcard *.h UCI/*.h)
+SNAP_FILES := makefile timer.cpp $(SRCS) $(wildcard *.h UCI/*.h NNUE/*.h) $(NET)
 
 # every `make` builds a new version: Engines/Arpeggio-X.Y.Z/ with its .sh
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) $(NET)
 	mkdir -p $(ENGINE_DIR)
 	$(CXX) $(OBJS) $(LIBS) -o $@ || { rmdir $(ENGINE_DIR); exit 1; }
-	printf '#!/bin/sh\nexec "$$(dirname "$$0")/Arpeggio-$(NEXT_VERSION)" uci\n' > $(SCRIPT)
+	cp $(NET) $(ENGINE_DIR)/arpeggio.nnue
+	printf '#!/bin/sh\nexec "$$(dirname "$$0")/Arpeggio-$(NEXT_VERSION)" uci "$$(dirname "$$0")/arpeggio.nnue"\n' > $(SCRIPT)
 	chmod +x $(SCRIPT)
 	tar czf $(ENGINE_DIR)/src.tar.gz $(SNAP_FILES)
 	echo $(NEXT_VERSION) > $(VERSION_FILE)
@@ -61,12 +64,13 @@ as-version: $(OBJS)
 	@test -n "$(V)" || { echo "usage: make as-version V=X.Y.Z"; exit 1; }
 	mkdir -p Engines/Arpeggio-$(V)
 	$(CXX) $(OBJS) $(LIBS) -o Engines/Arpeggio-$(V)/Arpeggio-$(V)
-	printf '#!/bin/sh\nexec "$$(dirname "$$0")/Arpeggio-$(V)" uci\n' > Engines/Arpeggio-$(V)/arpeggio-$(V).sh
+	cp $(NET) Engines/Arpeggio-$(V)/arpeggio.nnue
+	printf '#!/bin/sh\nexec "$$(dirname "$$0")/Arpeggio-$(V)" uci "$$(dirname "$$0")/arpeggio.nnue"\n' > Engines/Arpeggio-$(V)/arpeggio-$(V).sh
 	chmod +x Engines/Arpeggio-$(V)/arpeggio-$(V).sh
 
 # runs the latest built version (GUI mode) without building a new one
 run:
-	./$(LATEST)
+	./$(LATEST) gui Engines/Arpeggio-$(CUR_VERSION)/arpeggio.nnue
 
 # removes object files only; built engines in Engines/ are never deleted
 clean:

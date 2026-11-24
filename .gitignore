@@ -1,0 +1,9 @@
+web/out/
+NNUE/data/
+NNUE/datagen
+
+# build products and match data
+*.o
+*.d
+a.out
+matches/

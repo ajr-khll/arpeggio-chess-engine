@@ -1,5 +1,6 @@
 #include "minimax.h"
 #include "Moves.h"
+#include "NNUE/nnue.h"
 #include "TextureManager.h"
 #include "TranspositionTable.h"
 #include "simulateMoves.h"
@@ -20,6 +21,8 @@
 // (must match the PieceIDs order in TextureManager.h)
 
 enum colors { WHITE = 0, BLACK = 1 };
+constexpr int MAX_PLY = 256;
+AccumulatorPair accStack[MAX_PLY];
 
 // --------------------------------------------------------------------------
 // PIECE-SQUARE TABLES (White's Perspective)
@@ -186,6 +189,13 @@ int evaluateScore(GameState state, int color) {
   return score * (200 - state.halfmoveClock) / 200;
 }
 
+int evaluateScoreNNUE(GameState state) {
+  if (state.sideToMove == BLACK)
+    return nnueEval(state);
+  else
+    return -nnueEval(state);
+}
+
 static void selectNextMove(std::vector<Move> &moves, int position) {
   // swap best ranked move into position
   int bestRankPos = position;
@@ -286,7 +296,8 @@ static inline bool isTimeUp() {
 
 // follow all capture-to-capture paths on the board to find any potential
 // blunders.
-int quiescenceSearch(GameState state, int alpha, int beta, int qDepth = 0) {
+int quiescenceSearch(GameState state, int alpha, int beta, int ply,
+                     int qDepth = 0) {
   ++nodeCount;
   bool black = state.sideToMove == BLACK;
   bool inCheck = isInCheck(state, state.sideToMove);
@@ -303,7 +314,12 @@ int quiescenceSearch(GameState state, int alpha, int beta, int qDepth = 0) {
     }
     best = black ? -10000000 : 10000000;
   } else {
-    int standPat = evaluateScore(state, BLACK);
+    int standPat;
+    if (state.sideToMove == WHITE) {
+      standPat = -evaluate(accStack[ply].white, accStack[ply].black);
+    } else {
+      standPat = evaluate(accStack[ply].black, accStack[ply].white);
+    }
 
     if (black) {
       if (standPat >= beta)
@@ -325,9 +341,9 @@ int quiescenceSearch(GameState state, int alpha, int beta, int qDepth = 0) {
   for (size_t i = 0; i < moves.size(); i++) {
     selectNextMove(moves, i);
     Move move = moves[i];
-
-    int score =
-        quiescenceSearch(simulateMove(state, move), alpha, beta, qDepth + 1);
+    GameState simulated = simulateMove(state, move);
+    updateAccumulator(state, simulated, accStack[ply], accStack[ply + 1]);
+    int score = quiescenceSearch(simulated, alpha, beta, ply + 1, qDepth + 1);
     if (isTimeUp())
       return 0;
     if (black) {
@@ -420,9 +436,8 @@ int minimaxScore(GameState state, int maxDepth, int currDepth,
 
   if (remainingDepth == 0) {
     // base case
-    int score = evaluateScore(state, BLACK);
     // consider if any standing moves are blunders
-    score = quiescenceSearch(state, alpha, beta);
+    int score = quiescenceSearch(state, alpha, beta, currDepth);
     return score;
   }
   std::vector<Move> moves = gatherMoves(state, state.sideToMove);
@@ -454,14 +469,13 @@ int minimaxScore(GameState state, int maxDepth, int currDepth,
   for (size_t i = 0; i < moves.size(); i++) {
     selectNextMove(moves, i);
     Move move = moves[i];
-    if (std::chrono::steady_clock::now() > deadline) {
-      stop_search = true;
-    }
-    if (stop_search) {
+    if (isTimeUp()) {
       return -100000;
     }
     GameState simulated = simulateMove(state, move);
     positionHistory.push_back(simulated.hash);
+    updateAccumulator(state, simulated, accStack[currDepth],
+                      accStack[currDepth + 1]);
     int moveScore =
         minimaxScore(simulated, maxDepth, currDepth + 1, alpha, beta);
     positionHistory.pop_back();
@@ -517,8 +531,11 @@ evaluatedMove rootSearch(GameState state, int maxDepth,
                          (state.sideToMove == BLACK) ? -10000000 : 10000000};
   int alpha = -10000000;
   int beta = 10000000;
+  refreshAccumulator(state, 0, accStack[0].white);
+  refreshAccumulator(state, 1, accStack[0].black);
   for (Move move : moves) {
     GameState simulated = simulateMove(state, move);
+    updateAccumulator(state, simulated, accStack[0], accStack[1]);
     positionHistory.push_back(simulated.hash);
     int score = minimaxScore(simulated, maxDepth, 1, alpha, beta);
     positionHistory.pop_back();

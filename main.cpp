@@ -1,4 +1,5 @@
 #include "Moves.h"
+#include "NNUE/nnue.h"
 #include "TextureManager.h"
 #include "UCI/GameManager.h"
 #include "UCI/UciOut.h"
@@ -217,6 +218,12 @@ void renderingThread(sf::RenderWindow *win, GameState *state,
 };
 
 int main(int argc, char *argv[]) {
+  if (argc > 2) {
+    if (!loadNetwork(argv[2])) {
+      std::cerr << "failed to load network" << std::endl;
+    }
+  }
+
   if (argc > 1 && std::string(argv[1]) == "uci") {
     GameManager manager;
     manager.uciGameLoop();
