@@ -1,0 +1,14 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='640' height='102' viewBox='0 0 640 102' font-family='IBM Plex Mono, monospace'>
+<text x='4' y='18' font-size='14' fill='#8a8a8a'>First network</text>
+<text x='320.0' y='18' text-anchor='middle' font-size='13' fill='#a8a8a8'>78 – 10 – 12</text>
+<text x='636' y='18' text-anchor='end' font-size='14' fill='#8a8a8a'>Handwritten eval</text>
+<rect x='4.00' y='30' width='492.96' height='10' fill='#3f7d4a'/>
+<rect x='496.96' y='30' width='63.20' height='10' fill='#ffce9e'/>
+<rect x='560.16' y='30' width='75.84' height='10' fill='#d18b47'/>
+<text x='4' y='76' font-size='14' fill='#8a8a8a'>Second network</text>
+<text x='320.0' y='76' text-anchor='middle' font-size='13' fill='#a8a8a8'>117 – 34 – 35</text>
+<text x='636' y='76' text-anchor='end' font-size='14' fill='#8a8a8a'>First network</text>
+<rect x='4.00' y='88' width='397.55' height='10' fill='#3f7d4a'/>
+<rect x='401.55' y='88' width='115.53' height='10' fill='#ffce9e'/>
+<rect x='517.08' y='88' width='118.92' height='10' fill='#d18b47'/>
+</svg>
