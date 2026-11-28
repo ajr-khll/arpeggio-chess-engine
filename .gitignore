@@ -7,3 +7,7 @@ NNUE/datagen
 *.d
 a.out
 matches/
+
+# editor/tooling caches
+.cache/
+compile_commands.json
